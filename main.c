@@ -130,11 +130,69 @@ void free(void *block)
     pthread_mutex_unlock(&global_malloc_lock);
 }
 
+// Allocates memory for an array of num elements of nsize bytes each.
+void *calloc(size_t num, size_t nsize)
+{
+    size_t size;
+    void *block;
+    if (!num || !nsize) {
+        return NULL;
+    }
+
+    // null overflow
+    if (nsize != size /num) {
+        return NULL;
+    }
+
+    block = malloc(size);
+    if (!block) {
+        return NULL;
+    }
+
+    memset(block, 0, size);
+    return block;
+}
+
+// Change the size of the given memory block to the size given.
+void *realloc(void *block, size_t size)
+{
+    header_t *header;
+    void *ret;
+    if (!block || !size) {
+        return malloc(size);
+    }
+
+    header = (header_t*)block - 1;
+    if (header->s.size >= size) {
+        return block;
+    }
+    ret = malloc(size);
+
+    if (ret) {
+        memcpy(ret, block, header->s.size);
+        free(block);
+    }
+
+    return ret;
+}
+
+
+void print_mem_list()
+{
+    header_t *curr = head;
+    printf("head = %p, tail = %p \n", (void*)head, (void*)tail);
+    while(curr) {
+        printf("addr = %p, size = %zu, is_free=%u, next=%p\n",
+               (void*)curr, curr->s.size, curr->s.is_free, (void*)curr->s.next);
+        curr = curr->s.next;
+    }
+}
+
 int main() {
     int num = 1;
     void *pointer = malloc(sizeof(num));
     printf("%p", &pointer);
     free(pointer);
     printf("This pointer doesnt exist anymore %p", &pointer);
-
+    print_mem_list();
 }
