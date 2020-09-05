@@ -90,7 +90,51 @@ void *malloc(size_t size)
     return (void *)(header +1); // We increase by one byte because we don't want header to be seen by outside.
 }
 
+void free(void *block)
+{
+    header_t *header, *tmp;
+    void *program_break;
+
+    if (!block) {
+        return;
+    }
+
+    pthread_mutex_lock(&global_malloc_lock);
+    header = (header_t*)block - 1; // To get a header pointer we want to cast it to header_t and then get previous pointer.
+
+    program_break = sbrk(0); // get current value;
+    // We check if we are at the end of the heap. IF we are just shrink the size of the heap and release the memory
+    if ((char*)block + header->s.size == program_break) {
+        // Reset head and tail pointers;
+        if (header == tail) {
+            head = tail = NULL;
+        } else {
+            tmp = head;
+            while (tmp) {
+                if (tmp->s.next == tail) {
+                    tmp->s.next = NULL;
+                    tail = tmp;
+                }
+                tmp = tmp->s.next;
+            }
+        }
+
+        // To release the memory just calculate the sum of the header and block size.
+        sbrk(0 - sizeof(header_t) - header->s.size);
+        pthread_mutex_unlock(&global_malloc_lock);
+        return;
+    }
+
+    // IF we are not at the end just mark it as FREE.
+    header->s.is_free = 1;
+    pthread_mutex_unlock(&global_malloc_lock);
+}
+
 int main() {
-     void *pointer = malloc(sizeof("test"));
+    int num = 1;
+    void *pointer = malloc(sizeof(num));
     printf("%p", &pointer);
+    free(pointer);
+    printf("This pointer doesnt exist anymore %p", &pointer);
+
 }
